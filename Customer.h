@@ -16,7 +16,7 @@
 using namespace std;
 
 /**
- * Customer — The Renter role in the NexusRent marketplace.
+ * Customer — The Renter role in the Karwan marketplace.
  * Extended with: TrustScore (reputation) and Wallet (escrow).
  */
 class Customer : public User 

@@ -36,7 +36,7 @@ public:
     void removeVehicleFromInventory(vector <Vehicle*> &inventory);
     void viewAllVehicles(const vector <Vehicle*> &inventory);
     
-    /* NEW: NexusRent Admin Powers */
+    /* NEW: Karwan Admin Powers */
     void verifyVehicleListings(vector <Vehicle*> &inventory);
     void disputeResolutionCenter(vector<Customer*> &customers);
     void setCustomersContext(vector<Customer*>* ctx);

@@ -15,7 +15,7 @@
 using namespace std;
 
 /**
- * Lessor — The Vehicle Owner role in the NexusRent marketplace.
+ * Lessor — The Vehicle Owner role in the Karwan marketplace.
  * Inherits from User (abstract base).
  *
  * Lessors can:

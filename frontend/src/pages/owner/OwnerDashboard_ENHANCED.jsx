@@ -9,7 +9,7 @@ import ChecklistModal from '../../components/ChecklistModal.jsx';
 import RatingModal from '../../components/RatingModal.jsx';
 import ListVehicleModal from '../../components/ListVehicleModal.jsx';
 import { useOwnerData } from '../../hooks/useCustom.js';
-import { getBookings, updateBooking, auditLog, inspectBooking, submitRating, addVehicle } from '../../services/dataService.js';
+import { getBookings, updateBooking, auditLog, inspectBooking, submitRating, addVehicle, createDispute } from '../../services/dataService.js';
 import { useToast } from '../../store/ToastContext.jsx';
 import { BarChart3, DollarSign, Car, AlertCircle, CheckCircle, Clock, Star, LayoutDashboard, List, X, Plus } from 'lucide-react';
 
@@ -228,10 +228,21 @@ export default function OwnerDashboard() {
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground mb-1">STATUS</p>
-                          <p className="font-bold text-green-600">Currently in Use</p>
+                          <p className="font-bold text-green-600">{b.status}</p>
                         </div>
                       </div>
-                      <p className="text-sm text-muted-foreground">Awaiting customer to return vehicle</p>
+                      <div className="flex gap-2 mt-2">
+                        <Button variant="secondary" size="sm" onClick={async () => {
+                          try {
+                            await createDispute(b.bookingID, 'Owner reported damage');
+                            await auditLog(currentUser.id, 'DAMAGE_REPORTED', `Owner disputed booking ${b.bookingID}`);
+                            showToast('Damage reported. Booking marked as Disputed.', 'warning');
+                            window.location.reload();
+                          } catch (e) { showToast(`Error: ${e.message}`, 'error'); }
+                        }}>
+                          <AlertCircle className="w-4 h-4 mr-1" /> Report Damage
+                        </Button>
+                      </div>
                     </Card>
                   );
                 })}

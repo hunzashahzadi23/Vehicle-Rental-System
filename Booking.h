@@ -107,6 +107,10 @@ public:
     bool canCompleteInspection() const;
     bool canRate() const;
 
+    /* Fraud detection helpers */
+    bool detectChecklistMismatch() const;
+    bool missingVideoEvidence() const;
+
     /* Setters */
     void setBookingID(const string &id);
     void setBookedVehicleID(const string &vID);

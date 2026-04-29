@@ -43,6 +43,10 @@ protected:
     static int usersCount;
     
     vector<string> favoriteVehicles;
+    /* Trust & Fraud Detection */
+    double rating;           // average rating across bookings
+    int violationCount;      // number of proven violations
+    bool restricted;         // true if user is blocked from marketplace
 
 public:
     void addFavorite(const string& vehicleID);
@@ -91,6 +95,13 @@ public:
     string getUserType() const;
     string getUserCNIC() const;
     static int getUsersCount();
+
+    /* Trust management */
+    double getRating() const;
+    void adjustRating(double delta);
+    int getViolationCount() const;
+    void addViolation(const string &reason);
+    bool isRestricted() const;
 
     /* Polymorphism: Operator Overloading */
     bool operator==(const User& other) const { return this->userID == other.userID; }

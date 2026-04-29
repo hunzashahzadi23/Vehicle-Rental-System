@@ -306,7 +306,7 @@ void Customer::rentVehicle(vector <Vehicle*> &inventory)
     newBooking->setInsuranceType(insuranceTier);
     newBooking->setSecurityDeposit(deposit);
     newBooking->setOwnerID(inventory[i]->getOwnerID());
-    newBooking->setStatus("Active");
+    newBooking->setStatus(Booking::STATUS_PENDING_APPROVAL);
 
     string pickupPath;
     printFormattedText("Enter pickup video path/URL (Enter to skip):", COLOR_WHITE, false);
@@ -321,13 +321,12 @@ void Customer::rentVehicle(vector <Vehicle*> &inventory)
 
     if (confirmation == 'y' || confirmation == 'Y')
     {
-        wallet.pay(totalCost);
+        // Only lock security deposit at booking time. Rental payment is processed on completion.
         wallet.lock(deposit);
         bookings.push_back(*newBooking);
         inventory[i]->setAvailability(false);
-        // Audit log removed
         printLineWithDashes();
-        printFormattedText("Vehicle (" + id + ") rented successfully!", COLOR_GREEN, true);
+        printFormattedText("Booking created and deposit locked. Awaiting owner approval.", COLOR_GREEN, true);
         printFormattedText(wallet.toDisplayString(), COLOR_CYAN, false);
     }
     else
@@ -358,7 +357,7 @@ void Customer::returnVehicle(vector <Vehicle*> &inventory)
 
     for (i = 0; i < (int)bookings.size(); i++)
     {
-        if (lowercaseString(id) == lowercaseString(bookings[i].getBookedVehicleID()) && bookings[i].getStatus() == "Active")
+        if (lowercaseString(id) == lowercaseString(bookings[i].getBookedVehicleID()) && bookings[i].getStatus() == Booking::STATUS_ACTIVE)
         { flag = true; break; }
     }
     while (!flag)
@@ -368,15 +367,19 @@ void Customer::returnVehicle(vector <Vehicle*> &inventory)
         getline(cin, id);
         for (i = 0; i < (int)bookings.size(); i++)
         {
-            if (lowercaseString(id) == lowercaseString(bookings[i].getBookedVehicleID()) && bookings[i].getStatus() == "Active")
+            if (lowercaseString(id) == lowercaseString(bookings[i].getBookedVehicleID()) && bookings[i].getStatus() == Booking::STATUS_ACTIVE)
             { flag = true; break; }
         }
     }
 
-    string returnPath;
+    string returnPath, checklist;
     printFormattedText("Enter return video path/URL (Enter to skip):", COLOR_WHITE, false);
     printInputPrompt();
     getline(cin, returnPath);
+    
+    printFormattedText("Enter condition checklist (e.g., 'no_scratches,clean'):", COLOR_WHITE, false);
+    printInputPrompt();
+    getline(cin, checklist);
 
     printFormattedText("Confirm return (" + id + ")? (Y/N):", COLOR_WHITE, false);
     printInputPrompt();
@@ -395,15 +398,12 @@ void Customer::returnVehicle(vector <Vehicle*> &inventory)
                     { veh->setAvailability(true); break; }
                 }
                 bookings[j].setReturnVideoPath(returnPath);
-                bookings[j].setStatus("Closed");
-                double depositAmt = bookings[j].getSecurityDeposit();
-                wallet.release(depositAmt);
-                double payment = bookings[j].getRentalCost();
-                // Audit log removed
-                bookings.erase(bookings.begin() + j);
+                bookings[j].setCustomerChecklist(checklist); // Set checklist
+                // Move to return completed -> pending inspection for owner/admin
+                bookings[j].setStatus(Booking::STATUS_RETURN_COMPLETED);
                 printLineWithDashes();
-                printFormattedText("Vehicle (" + id + ") returned!", COLOR_GREEN, true);
-                printFormattedText("Cost: $" + toTwoDecimalString(payment) + " | Deposit released: $" + toTwoDecimalString(depositAmt), COLOR_WHITE, true);
+                printFormattedText("Return recorded. Awaiting owner inspection/admin review.", COLOR_GREEN, true);
+                printFormattedText("Deposit remains in escrow until inspection is cleared.", COLOR_WHITE, true);
                 printFormattedText(wallet.toDisplayString(), COLOR_GREEN, false);
                 break;
             }

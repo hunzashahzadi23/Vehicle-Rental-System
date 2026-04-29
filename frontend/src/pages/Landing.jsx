@@ -9,14 +9,13 @@ import SkeletonLoader from '../components/SkeletonLoader.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import {
   getVehicles, getMarketplaceStats,
-  addBooking, updateVehicle, auditLog,
-  FavManager
+  addBooking, updateVehicle, auditLog
 } from '../services/dataService.js';
 import { useToast } from '../store/ToastContext.jsx';
 import { ShieldCheck, Shield, Video, SlidersHorizontal, X } from 'lucide-react';
 
 export default function Landing() {
-  const { currentUser, refreshUser } = useApp();
+  const { currentUser, refreshUser, isFavorite, addToFavorites, removeFromFavorites } = useApp();
   const { showToast } = useToast();
   const [vehicles, setVehicles]         = useState([]);
   const [search, setSearch]             = useState('');
@@ -28,7 +27,6 @@ export default function Landing() {
   const [sidebarOpen, setSidebarOpen]   = useState(false);
   const [selected, setSelected]         = useState(null);
   const [loading, setLoading]           = useState(true);
-  const [favorites, setFavorites]       = useState([]);
   const [stats, setStats]               = useState({ verifiedVehicles: 0, availableNow: 0, luxuryFleet: 0, activeOwners: 0 });
   const navigate = useNavigate();
 
@@ -38,10 +36,6 @@ export default function Landing() {
       const s = await getMarketplaceStats();
       setVehicles(v);
       setStats(s);
-      if (currentUser) {
-        const favs = await FavManager.getFavorites(currentUser.id);
-        setFavorites(favs.map(f => typeof f === 'string' ? f : f.vehicleID));
-      }
       setLoading(false);
     }
     load();
@@ -68,9 +62,13 @@ export default function Landing() {
       navigate('/login');
       return;
     }
-    const updated = await FavManager.toggle(vehicleId, currentUser.id);
-    setFavorites(updated.map(f => typeof f === 'string' ? f : f.vehicleID));
-    showToast(favorites.includes(vehicleId) ? 'Removed from favorites' : 'Added to favorites!', 'success');
+    if (isFavorite(vehicleId)) {
+      await removeFromFavorites(vehicleId);
+      showToast('Removed from favorites', 'success');
+    } else {
+      await addToFavorites(vehicleId);
+      showToast('Added to favorites!', 'success');
+    }
   };
 
   const handleBook = async ({ vehicle, days, insurance, deposit, total }) => {
@@ -227,7 +225,7 @@ export default function Landing() {
                   vehicle={v}
                   onClick={() => setSelected(v)}
                   onToggleFavorite={currentUser?.role === 'Customer' ? handleToggleFavorite : null}
-                  isFavorite={favorites.includes(v.vehicleID)}
+                  isFavorite={isFavorite(v.vehicleID)}
                 />
               ))}
             </div>

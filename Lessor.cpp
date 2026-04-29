@@ -171,7 +171,7 @@ void Lessor::reportDamage(vector<Booking> &bookings)
     {
         if (lowercaseString(b.getBookingID()) == lowercaseString(bookingID) && b.getOwnerID() == userID)
         {
-            b.setStatus("Disputed");
+            b.setStatus(Booking::STATUS_DISPUTED);
             // Audit log removed
             printFormattedText("Booking " + bookingID + " marked as DISPUTED. Admin will review.", COLOR_YELLOW, true);
             printLineWithDashes();

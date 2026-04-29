@@ -10,16 +10,38 @@
 #include "User.h"
 using namespace std;
 
-User::User() : userID(""), userName(""), userEmail(""), userPassword(""), userPhoneNumber(""), userAddress(""), userType(""), userCNIC(""), status(AccountStatus::Active)
+User::User() : userID(""), userName(""), userEmail(""), userPassword(""), userPhoneNumber(""), userAddress(""), userType(""), userCNIC(""), status(AccountStatus::Active), rating(5.0), violationCount(0), restricted(false)
 {
     usersCount++;
 }
 
 User::User(const string &name, const string &email, const string &pass, const string &phoneNum, const string &address, const string &type, const string &cnic)
-    : userID(""), userName(name), userEmail(email), userPassword(pass), userPhoneNumber(phoneNum), userAddress(address), userType(type), userCNIC(cnic), status(AccountStatus::Active)
+    : userID(""), userName(name), userEmail(email), userPassword(pass), userPhoneNumber(phoneNum), userAddress(address), userType(type), userCNIC(cnic), status(AccountStatus::Active), rating(5.0), violationCount(0), restricted(false)
 {
     usersCount++;
 }
+
+/* Trust & Fraud initialization */
+double User::getRating() const { return rating; }
+
+void User::adjustRating(double delta) {
+    // Simple adjustment; in production use weighted average
+    if (rating <= 0.0) rating = 0.0;
+    rating += delta;
+    if (rating < 0.0) rating = 0.0;
+    if (rating > 5.0) rating = 5.0;
+}
+
+int User::getViolationCount() const { return violationCount; }
+
+void User::addViolation(const string &reason) {
+    violationCount++;
+    // Log action for audit
+    logAction(string("VIOLATION:") + reason);
+    if (violationCount >= 3) restricted = true;
+}
+
+bool User::isRestricted() const { return restricted; }
 
 void User::logAction(const string& msg) {
     actionLog.push_back(msg);

@@ -15,8 +15,8 @@ const CSV_SCHEMAS = {
   users: ['user_id', 'name', 'email', 'password', 'role', 'cnic', 'phone', 'address', 'trust_score', 'wallet_available', 'wallet_locked'],
   vehicles: ['vehicle_id', 'vehicle_number', 'owner_name', 'owner_id', 'vehicle_type', 'brand', 'model', 'rate_per_day', 'verification_status', 'available', 'fuelType', 'transmission', 'seats', 'year', 'is_luxury', 'description', 'image'],
   marketplace_vehicles: ['listing_id', 'vehicle_id', 'owner_id', 'status', 'listed_at'],
-  bookings: ['bookingID', 'vehicleID', 'customerID', 'ownerID', 'duration', 'cost', 'insurance', 'deposit', 'status', 'pickupVideoPath', 'returnVideoPath', 'customerChecklist', 'ownerChecklist', 'dentDescription', 'customerRated', 'ownerRated', 'rentDate', 'amountLocked', 'amountPaid', 'paymentDueDate', 'paymentPaidDate', 'inspectionNotes', 'disputeReason', 'adminVerdictNotes', 'customerRating', 'ownerRating', 'customerReview', 'ownerReview', 'createdAt', 'approvedAt', 'pickupAt', 'returnAt', 'completedAt'],
-  audit_logs: ['timestamp', 'userID', 'actionType', 'result'],
+  bookings: ['bookingID','bookedVehicleID','bookedCustomerID','ownerID','rentDate','rentDuration','rentalCost','insuranceType','securityDeposit','status','pickupVideoPath','returnVideoPath','customerChecklist','ownerChecklist','dentDescription','customerRated','ownerRated','amountLocked','amountPaid','paymentDueDate','paymentPaidDate','inspectionNotes','disputeReason','adminVerdictNotes','customerRating','ownerRating','customerReview','ownerReview','createdAt','approvedAt','pickupAt','returnAt','completedAt'],
+  audit_logs: ['timestamp','actorID','action','details'],
   transactions: ['id', 'timestamp', 'userID', 'type', 'amount', 'description'],
   reviews: ['id', 'vehicleID', 'userId', 'rating', 'comment', 'date'],
   favorites: ['userID', 'vehicleID', 'addedAt'],
@@ -77,6 +77,38 @@ function runCpp(args) {
       reject(new Error(errMessage));
     });
   });
+}
+
+function appendAudit(actorID, action, details) {
+  const file = csvPath('audit_logs');
+  const rows = readCsv(file);
+  const entry = { timestamp: new Date().toISOString(), actorID, action, details };
+  rows.push(entry);
+  writeCsv(file, rows, CSV_SCHEMAS.audit_logs);
+}
+
+// JS-side validator mirroring C++ Booking::isValidStatusTransition
+function isValidBookingTransition(current, next) {
+  if (!current || current === next) return false;
+  if (current === 'PendingApproval') return next === 'Approved' || next === 'Disputed';
+  if (current === 'Approved') return next === 'PickupCompleted' || next === 'Disputed';
+  if (current === 'PickupCompleted') return next === 'Active' || next === 'Disputed';
+  if (current === 'Active') return next === 'ReturnCompleted' || next === 'Disputed';
+  if (current === 'ReturnCompleted') return next === 'PendingInspection' || next === 'Disputed';
+  if (current === 'PendingInspection') return next === 'Completed' || next === 'Disputed';
+  if (current === 'Disputed') return next === 'ResolvedFavorOwner' || next === 'ResolvedFavorRenter';
+  return false;
+}
+
+// Adjust user trust score helper
+async function adjustUserTrust(userId, delta) {
+  const file = csvPath('users');
+  const rows = readCsv(file);
+  const idx = rows.findIndex(r => r.user_id === userId);
+  if (idx === -1) return;
+  const current = parseFloat(rows[idx].trust_score) || 3.0;
+  rows[idx].trust_score = String(Math.max(0, Math.min(5, current + delta)));
+  writeCsv(file, rows, CSV_SCHEMAS.users);
 }
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
@@ -145,6 +177,8 @@ app.post('/api/bookings', async (req, res) => {
     const [id, status] = await runCpp([
       'create_booking', customerID, vehicleID, ownerID, String(duration), String(cost), insurance, String(deposit), rentDate || ''
     ]);
+    // Audit
+    appendAudit(customerID || 'SYSTEM', 'BOOKING_CREATED', `Booking ${id} created for vehicle ${vehicleID}`);
     res.json({ bookingID: id, status, ...req.body });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -204,7 +238,7 @@ app.get('/api/favorites/:userId', async (req, res) => {
 app.get('/api/bookings/user/:userId', (req, res) => {
   const { userId } = req.params;
   const rows = readCsv(csvPath('bookings'));
-  const userBookings = rows.filter((r) => r.customerID === userId || r.ownerID === userId);
+  const userBookings = rows.filter((r) => r.bookedCustomerID === userId || r.customerID === userId || r.ownerID === userId);
   res.json(userBookings);
 });
 
@@ -236,30 +270,34 @@ app.post('/api/videos/upload', (req, res) => {
   }
   
   writeCsv(csvPath('bookings'), bookings, CSV_SCHEMAS.bookings);
+  appendAudit('SYSTEM', 'VIDEO_UPLOADED', `Video ${videoType} for ${bookingId}`);
   res.json({ ok: true, videoPath });
 });
 
-// NEW: Admin dispute resolution
-app.post('/api/disputes/resolve', (req, res) => {
-  const { bookingId, verdict, notes } = req.body || {};
-  if (!bookingId || !verdict) {
-    return res.status(400).json({ error: 'Missing required fields' });
-  }
-  
+// Admin dispute resolution with trust penalty
+app.post('/api/disputes/resolve', async (req, res) => {
+  const { bookingId, verdict, notes, penalizeUserId } = req.body || {};
+  if (!bookingId || !verdict) return res.status(400).json({ error: 'Missing required fields' });
   const validVerdicts = ['ResolvedFavorOwner', 'ResolvedFavorRenter'];
-  if (!validVerdicts.includes(verdict)) {
-    return res.status(400).json({ error: 'Invalid verdict' });
-  }
-  
+  if (!validVerdicts.includes(verdict)) return res.status(400).json({ error: 'Invalid verdict' });
+
   const updated = updateById('bookings', 'bookingID', bookingId, {
     status: verdict,
-    adminVerdictNotes: notes || ''
+    adminVerdictNotes: notes || '',
+    completedAt: new Date().toISOString()
   });
-  
-  if (!updated) {
-    return res.status(404).json({ error: 'Booking not found' });
+  if (!updated) return res.status(404).json({ error: 'Booking not found' });
+
+  // Apply trust penalty if verdict favors owner (customer lied)
+  if (verdict === 'ResolvedFavorOwner' && penalizeUserId) {
+    await adjustUserTrust(penalizeUserId, -1.0);
+    appendAudit('ADMIN', 'PENALTY_APPLIED', `Trust -1 for ${penalizeUserId} (dispute lost)`);
   }
-  
+  // Also restore vehicle availability
+  if (updated.bookedVehicleID) {
+    updateById('vehicles', 'vehicle_id', updated.bookedVehicleID, { available: '1' });
+  }
+  appendAudit('ADMIN', 'DISPUTE_RESOLVED', `Booking ${bookingId} resolved as ${verdict}`);
   res.json({ ok: true, booking: updated });
 });
 
@@ -278,45 +316,44 @@ app.post('/api/disputes/create', (req, res) => {
   if (!updated) {
     return res.status(404).json({ error: 'Booking not found' });
   }
-  
+  appendAudit('SYSTEM', 'DISPUTE_INITIATED', `Booking ${bookingId} disputed`);
   res.json({ ok: true, booking: updated });
 });
 
-// NEW: Approve booking (owner action)
+// Approve booking (owner action)
 app.post('/api/bookings/:id/approve', (req, res) => {
-  const { ownerChecklist } = req.body || {};
-  const updated = updateById('bookings', 'bookingID', req.params.id, {
-    status: 'Approved',
-    ownerChecklist: ownerChecklist || '',
-    approvedAt: new Date().toISOString()
-  });
-  if (!updated) return res.status(404).json({ error: 'Booking not found' });
-  res.json(updated);
+  const { ownerChecklist, actorID } = req.body || {};
+  runCpp(['approve_booking', req.params.id, ownerChecklist || '', actorID || '']).then((out) => {
+    appendAudit(actorID || 'SYSTEM', 'BOOKING_APPROVED', `Booking ${req.params.id} approved`);
+    res.json({ bookingID: out[0], status: out[1] });
+  }).catch(err => res.status(400).json({ error: err.message }));
+});
+
+// NEW: Activate booking (PickupCompleted → Active)
+app.post('/api/bookings/:id/activate', (req, res) => {
+  const { actorID } = req.body || {};
+  runCpp(['activate_booking', req.params.id]).then((out) => {
+    appendAudit(actorID || 'SYSTEM', 'BOOKING_ACTIVATED', `Booking ${req.params.id} now Active`);
+    res.json({ bookingID: out[0], status: out[1] });
+  }).catch(err => res.status(400).json({ error: err.message }));
 });
 
 // NEW: Complete pickup (customer action)
 app.post('/api/bookings/:id/complete-pickup', (req, res) => {
-  const { pickupVideoPath } = req.body || {};
-  const updated = updateById('bookings', 'bookingID', req.params.id, {
-    status: 'PickupCompleted',
-    pickupVideoPath: pickupVideoPath || '',
-    pickupAt: new Date().toISOString()
-  });
-  if (!updated) return res.status(404).json({ error: 'Booking not found' });
-  res.json(updated);
+  const { pickupVideoPath, actorID } = req.body || {};
+  runCpp(['complete_pickup', req.params.id, pickupVideoPath || '', actorID || '']).then((out) => {
+    appendAudit(actorID || 'SYSTEM', 'PICKUP_COMPLETED', `Pickup for ${req.params.id}`);
+    res.json({ bookingID: out[0], status: out[1] });
+  }).catch(err => res.status(400).json({ error: err.message }));
 });
 
 // NEW: Complete return (customer action)
 app.post('/api/bookings/:id/complete-return', (req, res) => {
-  const { returnVideoPath, customerChecklist } = req.body || {};
-  const updated = updateById('bookings', 'bookingID', req.params.id, {
-    status: 'ReturnCompleted',
-    returnVideoPath: returnVideoPath || '',
-    customerChecklist: customerChecklist || '',
-    returnAt: new Date().toISOString()
-  });
-  if (!updated) return res.status(404).json({ error: 'Booking not found' });
-  res.json(updated);
+  const { returnVideoPath, customerChecklist, actorID } = req.body || {};
+  runCpp(['complete_return', req.params.id, returnVideoPath || '', customerChecklist || '', actorID || '']).then((out) => {
+    appendAudit(actorID || 'SYSTEM', 'RETURN_COMPLETED', `Return for ${req.params.id}`);
+    res.json({ raw: out });
+  }).catch(err => res.status(400).json({ error: err.message }));
 });
 
 // NEW: Submit rating and review
@@ -339,21 +376,17 @@ app.post('/api/bookings/:id/rate', (req, res) => {
   
   const updated = updateById('bookings', 'bookingID', req.params.id, update);
   if (!updated) return res.status(404).json({ error: 'Booking not found' });
+  appendAudit(ratedBy || 'SYSTEM', 'RATING_SUBMITTED', `Rating for ${req.params.id} by ${ratedBy}`);
   res.json(updated);
 });
 
 // NEW: Admin inspection and completion
 app.post('/api/bookings/:id/inspect', (req, res) => {
-  const { inspectionNotes, approved } = req.body || {};
-  const newStatus = approved === 'true' ? 'Completed' : 'Disputed';
-  
-  const updated = updateById('bookings', 'bookingID', req.params.id, {
-    status: newStatus,
-    inspectionNotes: inspectionNotes || '',
-    completedAt: approved === 'true' ? new Date().toISOString() : ''
-  });
-  if (!updated) return res.status(404).json({ error: 'Booking not found' });
-  res.json(updated);
+  const { inspectionNotes, approved, adminID } = req.body || {};
+  runCpp(['inspect_booking', req.params.id, String(approved === true || approved === 'true'), inspectionNotes || '', adminID || '']).then((out) => {
+    appendAudit(adminID || 'ADMIN', approved === true || approved === 'true' ? 'INSPECTION_APPROVED' : 'INSPECTION_FAILED', `Inspection for ${req.params.id}: ${approved}`);
+    res.json({ bookingID: out[0], status: out[1] });
+  }).catch(err => res.status(400).json({ error: err.message }));
 });
 
 app.listen(4000, () => {

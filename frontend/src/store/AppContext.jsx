@@ -138,9 +138,11 @@ export function AppProvider({ children }) {
   };
 
   const isFavorite = (vehicleId) => {
-    const found = userFavorites.some(f => f.vehicleID === vehicleId);
-    console.log(`[Karwan] Checking if ${vehicleId} is favorite: ${found}`);
-    return found;
+    // Handle both formats: [{vehicleID: "VC-0001"}] and ["VC-0001"]
+    return userFavorites.some(f => {
+      const fid = typeof f === 'string' ? f : f?.vehicleID;
+      return fid === vehicleId;
+    });
   };
 
   // NEW: Booking state transitions

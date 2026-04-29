@@ -4,7 +4,7 @@ import Navbar from '../../components/Navbar.jsx';
 import {
   getVehicles, getPendingVehicles, updateVehicle,
   getBookings, getDisputedBookings, getPendingInspectionBookings, updateBooking,
-  getUsers, getAuditLog, auditLog, findUserById, adjustTrustScore
+  getUsers, getAuditLog, auditLog, findUserById, adjustTrustScore, resolveDispute
 } from '../../services/dataService.js';
 import { useToast } from '../../store/ToastContext.jsx';
 import { ShieldCheck, Scale, Users, FileText, LayoutDashboard, CheckCircle, XCircle, Search, Video, Star, AlertTriangle, Clock } from 'lucide-react';
@@ -47,7 +47,7 @@ export default function AdminDashboard() {
 
   if (!currentUser || currentUser.role !== 'Admin') return null;
 
-  // ── Verification Center ──
+  // â”€â”€ Verification Center â”€â”€
   const handleVerify = async (vehicleID, action) => {
     const status = action === 'approve' ? 'Approved' : 'Rejected';
     
@@ -57,7 +57,7 @@ export default function AdminDashboard() {
     await reload();
   };
 
-  // ── Approve Return (Pending Inspection → Completed) ──
+  // â”€â”€ Approve Return (Pending Inspection â†’ Completed) â”€â”€
   const handleApproveReturn = async (booking) => {
     await updateBooking(booking.bookingID, { status: 'Completed' });
     await updateVehicle(booking.vehicleID, { available: true });
@@ -67,21 +67,18 @@ export default function AdminDashboard() {
     await reload();
   };
 
-  // ── Dispute Center ──
+  // â”€â”€ Dispute Center â”€â”€
+  // FIXED: Use C++ status constants: ResolvedFavorOwner / ResolvedFavorRenter
   const handleResolveDispute = async (bookingID, resolution) => {
     const bookings = await getBookings();
     const booking = bookings.find(b => b.bookingID === bookingID);
-    await updateBooking(bookingID, { status: resolution === 'customer' ? 'Resolved — Customer Favored' : 'Resolved — Owner Favored' });
-    if (booking) {
-      if (resolution === 'customer') {
-        await adjustTrustScore(booking.customerID, 0.2);
-      } else {
-        await adjustTrustScore(booking.customerID, -0.5);
-      }
-    }
+    const verdict = resolution === 'customer' ? 'ResolvedFavorRenter' : 'ResolvedFavorOwner';
+    // penalize the losing party
+    const penalizeUserId = resolution !== 'customer' ? booking?.customerID : null;
+    await resolveDispute(bookingID, verdict, '', penalizeUserId);
     await updateVehicle(booking?.vehicleID, { available: true });
-    await auditLog(currentUser.id, 'DISPUTE_RESOLVE', `${bookingID} resolved in favor of ${resolution}`);
-    showToast(`Dispute ${bookingID} resolved in favor of ${resolution}!`, 'success');
+    await auditLog(currentUser.id, 'DISPUTE_RESOLVED', `${bookingID} resolved: ${verdict}`);
+    showToast(`Dispute resolved in favour of ${resolution === 'customer' ? 'Renter' : 'Owner'}.`, 'success');
     await reload();
   };
 
@@ -113,7 +110,7 @@ export default function AdminDashboard() {
             </h1>
           </div>
           <div className="text-sm font-semibold text-muted-foreground bg-slate-100 dark:bg-slate-900/50 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-800 flex gap-4">
-            <div><span className="text-green-500 font-bold">●</span> System Online</div>
+            <div><span className="text-green-500 font-bold">â—</span> System Online</div>
             <div><span className="text-blue-500 font-bold">V 2.0</span></div>
           </div>
         </div>
@@ -151,7 +148,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* ═══ OVERVIEW ═══ */}
+        {/* â•â•â• OVERVIEW â•â•â• */}
         {tab === 'overview' && (
           <div className="fade-up">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
@@ -212,7 +209,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ═══ VERIFICATION CENTER ═══ */}
+        {/* â•â•â• VERIFICATION CENTER â•â•â• */}
         {tab === 'verification' && (
           <div className="fade-up">
             <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><ShieldCheck className="w-6 h-6 text-emerald-500" /> Verification Center</h3>
@@ -245,7 +242,7 @@ export default function AdminDashboard() {
                           <div>
                             <h3 className="text-xl font-bold mb-1">{v.brand} {v.model}</h3>
                             <div className="text-sm text-muted-foreground">
-                              {v.vehicleID} · {v.vehicleType} · {v.year} · {v.license}
+                              {v.vehicleID} Â· {v.vehicleType} Â· {v.year} Â· {v.license}
                             </div>
                           </div>
                           <span className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
@@ -290,7 +287,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ═══ INSPECTIONS CENTER ═══ */}
+        {/* â•â•â• INSPECTIONS CENTER â•â•â• */}
         {tab === 'inspections' && (
           <div className="fade-up">
             <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><CheckCircle className="w-6 h-6 text-emerald-500" /> Return Inspections</h3>
@@ -311,7 +308,7 @@ export default function AdminDashboard() {
                       <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
                         <div>
                           <h4 className="text-lg font-bold mb-1">{v?.brand} {v?.model}</h4>
-                          <div className="text-sm text-muted-foreground">{b.bookingID} · Renter: {customer?.name || b.customerID} · Rs. {Math.round(b.cost || 0).toLocaleString('en-PK')}</div>
+                          <div className="text-sm text-muted-foreground">{b.bookingID} Â· Renter: {customer?.name || b.customerID} Â· Rs. {Math.round(b.cost || 0).toLocaleString('en-PK')}</div>
                         </div>
                         <span className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1"><Clock className="w-3 h-3" /> Pending Inspection</span>
                       </div>
@@ -332,7 +329,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ═══ DISPUTE CENTER ═══ */}
+        {/* â•â•â• DISPUTE CENTER â•â•â• */}
         {tab === 'disputes' && (
           <div className="fade-up">
             <h3 className="text-2xl font-bold mb-2 flex items-center gap-2"><Scale className="w-6 h-6 text-red-500" /> Dispute Center</h3>
@@ -356,7 +353,7 @@ export default function AdminDashboard() {
                         <div>
                           <h3 className="text-xl font-bold mb-1 text-red-600 dark:text-red-400">Dispute: {b.bookingID}</h3>
                           <div className="text-sm text-muted-foreground">
-                            {v?.brand} {v?.model} · Rented {b.rentDate} · {b.duration} days · Rs. {Math.round(b.cost || 0).toLocaleString('en-PK')}
+                            {v?.brand} {v?.model} Â· Rented {b.rentDate} Â· {b.duration} days Â· Rs. {Math.round(b.cost || 0).toLocaleString('en-PK')}
                           </div>
                         </div>
                         <span className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-500/20 text-red-700 dark:text-red-400 border border-red-500/30 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Disputed</span>
@@ -428,7 +425,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ═══ USERS TAB ═══ */}
+        {/* â•â•â• USERS TAB â•â•â• */}
         {tab === 'users' && (
           <div className="fade-up">
             <h3 className="text-2xl font-bold mb-6 flex items-center gap-2"><Users className="w-6 h-6 text-emerald-500" /> All Users <span className="text-muted-foreground text-lg font-normal">({allUsers.length})</span></h3>
@@ -443,37 +440,49 @@ export default function AdminDashboard() {
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800/50">
                   {allUsers.map(u => {
-                    const roleColors = { 
-                      Customer: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800', 
-                      Lessor: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800', 
-                      Admin: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' 
+                    const trustScore = u.role === 'Customer' ? (u.trustScore || 0) : null;
+                    const trustLevel = trustScore !== null
+                      ? trustScore >= 4 ? 'Trusted' : trustScore >= 2 ? 'Normal' : 'Monitoring'
+                      : null;
+                    const trustColors = { Trusted: 'text-green-600', Normal: 'text-yellow-500', Monitoring: 'text-red-500' };
+                    const roleColors = {
+                      Customer: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800',
+                      Lessor: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800',
+                      Admin: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
                     };
                     return (
                       <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                         <td className="py-4 px-6 text-sm font-semibold whitespace-nowrap">{u.id}</td>
-                        <td className="py-4 px-6 text-sm font-bold text-text whitespace-nowrap">{u.name}</td>
+                        <td className="py-4 px-6 text-sm font-bold text-text whitespace-nowrap">
+                          {u.name}
+                          {trustScore !== null && trustScore < 2.0 && (
+                            <span className="ml-2 text-[0.6rem] font-bold uppercase px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full border border-red-200">RESTRICTED</span>
+                          )}
+                        </td>
                         <td className="py-4 px-6 text-sm text-muted-foreground whitespace-nowrap">{u.email}</td>
                         <td className="py-4 px-6 whitespace-nowrap">
                           <span className={`text-[0.65rem] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${roleColors[u.role]}`}>
                             {u.role}
                           </span>
                         </td>
-                        <td className="py-4 px-6 font-bold text-yellow-500 whitespace-nowrap">
+                        <td className="py-4 px-6 font-bold whitespace-nowrap">
                           <span className="flex items-center gap-1">
-                            {(u.role === 'Customer' || u.role === 'Lessor') ? <Star className="w-3.5 h-3.5 fill-yellow-400" /> : null}
-                            {u.role === 'Customer' ? (u.trustScore || 0).toFixed(1) : u.role === 'Lessor' ? (u.rating || 0).toFixed(1) : '—'}
+                            {(u.role === 'Customer' || u.role === 'Lessor') ? <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" /> : null}
+                            <span className={trustColors[trustLevel] || 'text-muted-foreground'}>
+                              {u.role === 'Customer' ? `${(u.trustScore || 0).toFixed(1)} (${trustLevel})` : u.role === 'Lessor' ? (u.rating || 0).toFixed(1) : 'â€”'}
+                            </span>
                           </span>
                         </td>
                       </tr>
                     );
                   })}
-                </tbody>
+                       </tbody>
               </table>
             </div>
           </div>
         )}
 
-        {/* ═══ AUDIT LOG ═══ */}
+        {/* â•â•â• AUDIT LOG â•â•â• */}
         {tab === 'audit' && (
           <div className="fade-up">
             <h3 className="text-2xl font-bold mb-6 flex items-center gap-2"><FileText className="w-6 h-6 text-emerald-500" /> Audit Log <span className="text-muted-foreground text-lg font-normal">(Last 50)</span></h3>
@@ -487,13 +496,13 @@ export default function AdminDashboard() {
                   <div key={i} className="p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                     <div className="flex items-start md:items-center gap-4 flex-wrap">
                       <span className="text-xs font-bold font-mono px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-700 shadow-sm whitespace-nowrap">
-                        {log.actionType}
+                        {log.action || log.actionType || 'â€”'}
                       </span>
-                      <span className="text-sm font-medium text-text/90 break-words">{log.result}</span>
+                      <span className="text-sm font-medium text-text/90 break-words">{log.details || log.result || 'â€”'}</span>
                     </div>
                     <div className="flex items-center gap-4 text-xs font-semibold text-muted-foreground whitespace-nowrap flex-shrink-0">
-                      <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {log.userID}</span>
-                      <span>{new Date(log.timestamp).toLocaleString()}</span>
+                      <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {log.actorID || log.userID || 'â€”'}</span>
+                      <span>{log.timestamp ? new Date(log.timestamp).toLocaleString() : 'â€”'}</span>
                     </div>
                   </div>
                 ))}
@@ -519,3 +528,5 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
+

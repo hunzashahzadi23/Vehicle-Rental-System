@@ -73,35 +73,28 @@ void Booking::incrementOrDecrementIDCounter(bool isIncrement) {
 /* Status Transition Validation */
 bool Booking::isValidStatusTransition(const string &newStatus) const {
   if (status == newStatus) return false;  // No-op transition
-  
-  // Valid transitions from each status
+  // Enforce strict lifecycle:
+  // PendingApproval -> Approved -> PickupCompleted -> Active -> ReturnCompleted -> PendingInspection -> Completed/Disputed
   if (status == STATUS_PENDING_APPROVAL) {
     return newStatus == STATUS_APPROVED || newStatus == STATUS_DISPUTED;
   }
   if (status == STATUS_APPROVED) {
-    return newStatus == STATUS_PICKUP_SCHEDULED;
-  }
-  if (status == STATUS_PICKUP_SCHEDULED) {
-    return newStatus == STATUS_PICKUP_COMPLETED;
+    return newStatus == STATUS_PICKUP_COMPLETED || newStatus == STATUS_DISPUTED;
   }
   if (status == STATUS_PICKUP_COMPLETED) {
-    return newStatus == STATUS_ACTIVE;
+    return newStatus == STATUS_ACTIVE || newStatus == STATUS_DISPUTED;
   }
   if (status == STATUS_ACTIVE) {
-    return newStatus == STATUS_RETURN_SCHEDULED || newStatus == STATUS_DISPUTED;
-  }
-  if (status == STATUS_RETURN_SCHEDULED) {
-    return newStatus == STATUS_RETURN_COMPLETED;
+    return newStatus == STATUS_RETURN_COMPLETED || newStatus == STATUS_DISPUTED;
   }
   if (status == STATUS_RETURN_COMPLETED) {
-    return newStatus == STATUS_PENDING_INSPECTION;
+    return newStatus == STATUS_PENDING_INSPECTION || newStatus == STATUS_DISPUTED;
   }
   if (status == STATUS_PENDING_INSPECTION) {
     return newStatus == STATUS_COMPLETED || newStatus == STATUS_DISPUTED;
   }
   if (status == STATUS_DISPUTED) {
-    return newStatus == STATUS_RESOLVED_FAVOR_OWNER || 
-           newStatus == STATUS_RESOLVED_FAVOR_RENTER;
+    return newStatus == STATUS_RESOLVED_FAVOR_OWNER || newStatus == STATUS_RESOLVED_FAVOR_RENTER;
   }
   
   return false;  // Invalid transition
@@ -239,3 +232,46 @@ Booking::~Booking() { bookingsCount--; }
 
 int Booking::bookingsCount = 0;
 int Booking::bookingIDCounter = 0;
+
+/* ── Fraud / Checklist helpers ───────────────────────────────────────── */
+bool Booking::detectChecklistMismatch() const {
+  // Expecting 8 yes/no items in a single checklist string separated by commas or pipes.
+  if (ownerChecklist.empty() || customerChecklist.empty()) return false;
+  auto split = [](const string &s) {
+    vector<string> out;
+    string cur;
+    for (char c : s) {
+      if (c == ',' || c == '|' || c == ';') { if (!cur.empty()) { out.push_back(cur); cur.clear(); } }
+      else cur.push_back(tolower(c));
+    }
+    if (!cur.empty()) out.push_back(cur);
+    return out;
+  };
+  vector<string> a = split(ownerChecklist);
+  vector<string> b = split(customerChecklist);
+  if (a.size() != 8 || b.size() != 8) {
+    // If checklist doesn't conform to 8 items, treat as mismatch
+    return true;
+  }
+  for (size_t i = 0; i < 8; ++i) {
+    string sa = a[i];
+    string sb = b[i];
+    // normalize yes/no/1/0
+    auto norm = [](string s){
+      // trim
+      while(!s.empty() && isspace(s.back())) s.pop_back();
+      while(!s.empty() && isspace(s.front())) s.erase(s.begin());
+      if (s == "1" || s == "y" || s == "yes" || s == "true") return string("1");
+      return string(s.empty() ? "0" : s);
+    };
+    if (norm(sa) != norm(sb)) return true;
+  }
+  return false;
+}
+
+bool Booking::missingVideoEvidence() const {
+  // Enforce video evidence: pickup must have pickup video; return must have return video
+  if (status == STATUS_PICKUP_COMPLETED && pickupVideoPath.empty()) return true;
+  if ((status == STATUS_RETURN_COMPLETED || status == STATUS_PENDING_INSPECTION) && returnVideoPath.empty()) return true;
+  return false;
+}

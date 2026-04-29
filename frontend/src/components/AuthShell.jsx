@@ -10,10 +10,10 @@ export default function AuthShell({ title, subtitle, maxWidth = 'max-w-md', chil
         <div className="text-center mb-10">
           <Link to="/" className="inline-flex items-center gap-2 group">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-600 to-green-500 flex items-center justify-center text-white font-extrabold text-2xl shadow-lg shadow-green-500/30 group-hover:scale-105 transition-transform duration-300">
-              H
+              K
             </div>
             <span className="font-bold text-2xl tracking-tight text-text">
-              Hu<span className="text-green-600 dark:text-green-500">nal</span>
+              Kar<span className="text-green-600 dark:text-green-500">wan</span>
             </span>
           </Link>
           <h2 className="mt-8 text-3xl font-extrabold tracking-tight">{title}</h2>
