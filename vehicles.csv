@@ -1,0 +1,21 @@
+vehicle_id,vehicle_number,owner_name,owner_id,vehicle_type,brand,model,rate_per_day,verification_status,available,fuelType,transmission,seats,year,is_luxury,description,image
+VC-0001,KHI-ABC-123,Ahmed Raza,UL-0001,Car,Toyota,Corolla,7000,Verified,1,Petrol,Automatic,5,2023,0,Pakistan trusted sedan,https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=600&q=80
+VC-0002,LHR-DEF-456,Ahmed Raza,UL-0001,Car,Honda,Civic,8500,Verified,1,Petrol,Automatic,5,2023,0,Sporty and modern sedan,https://images.unsplash.com/photo-1617469767158-cb31be89e2e1?w=600&q=80
+VC-0003,ISB-GHI-789,Fatima Noor,UL-0002,Car,Toyota,Vitz,4500,Verified,1,Petrol,Automatic,5,2022,0,Compact city hatchback,https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=600&q=80
+VC-0004,KHI-JKL-001,Ahmed Raza,UL-0001,Car,Suzuki,Alto,3500,Verified,1,Petrol,Manual,5,2023,0,Budget friendly city car,https://images.unsplash.com/photo-1499912886650-7f56fd84a4c7?w=600&q=80
+VC-0005,LHR-MNO-202,Bilal Sheikh,UL-0003,Car,Kia,Sportage,14000,Verified,1,Petrol,Automatic,5,2023,0,Powerful crossover SUV,https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=600&q=80
+VC-0006,KHI-PQR-303,Bilal Sheikh,UL-0003,Car,Toyota,Fortuner,22000,Verified,1,Diesel,Automatic,7,2024,1,Premium SUV for family trips,https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=600&q=80
+VC-0007,ISB-STU-404,Fatima Noor,UL-0002,Car,Hyundai,Tucson,12000,Verified,1,Petrol,Automatic,5,2023,0,Modern ADAS SUV,https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=600&q=80
+VC-0008,KHI-VWX-505,Ahmed Raza,UL-0001,Car,Honda,BRV,9000,Verified,1,Petrol,Automatic,7,2022,0,7 seater crossover,https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80
+VC-0009,LHR-YZA-606,Fatima Noor,UL-0002,Car,Toyota,Camry,18000,Verified,1,Hybrid,Automatic,5,2023,1,Executive hybrid sedan,https://images.unsplash.com/photo-1609521263047-f8f205293f24?w=600&q=80
+VC-0010,KHI-BCD-707,Ahmed Raza,UL-0001,Car,Suzuki,Swift,5000,Verified,1,Petrol,Manual,5,2023,0,Peppy sporty hatchback,https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=600&q=80
+VC-0011,ISB-EFG-808,Bilal Sheikh,UL-0003,Car,MG,HS,16000,Verified,1,Petrol,Automatic,5,2024,1,Feature packed SUV,https://images.unsplash.com/photo-1563720223185-11003d516935?w=600&q=80
+VC-0012,LHR-HIJ-909,Bilal Sheikh,UL-0003,Car,Toyota,Land Cruiser,45000,Verified,1,Diesel,Automatic,7,2024,1,Top tier luxury off roader,https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=600&q=80
+VC-0013,KHI-KLM-010,Fatima Noor,UL-0002,Car,Changan,Alsvin,5500,Verified,1,Petrol,Automatic,5,2023,0,Value sedan option,https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80
+VC-0014,LHR-NOP-111,Bilal Sheikh,UL-0003,Car,BMW,5 Series,35000,Verified,1,Petrol,Automatic,5,2023,1,German business class sedan,https://images.unsplash.com/photo-1555215695-3004980ad54e?w=600&q=80
+VC-0015,ISB-QRS-222,Bilal Sheikh,UL-0003,Car,Audi,A6,38000,Pending,1,Petrol,Automatic,5,2024,1,Premium sedan pending verification,https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=600&q=80
+VB-0001,KHI-TUV-333,Ahmed Raza,UL-0001,Bike,Yamaha,YBR 125,1500,Verified,1,Petrol,Manual,2,2023,0,Top commuter bike,https://images.unsplash.com/photo-1558981285-6f0c94958bb6?w=600&q=80
+VB-0002,LHR-WXY-444,Ahmed Raza,UL-0001,Bike,Honda,CD 70,1000,Verified,1,Petrol,Manual,2,2023,0,Legendary budget bike,https://images.unsplash.com/photo-1449426468159-d96dbf08f19f?w=600&q=80
+VB-0003,ISB-ZAB-555,Fatima Noor,UL-0002,Bike,Suzuki,GD-110S,1800,Verified,1,Petrol,Manual,2,2022,0,Premium commuter bike,https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=600&q=80
+VT-0001,KHI-CDE-666,Ahmed Raza,UL-0001,Truck,Isuzu,D-Max,15000,Verified,1,Diesel,Manual,4,2022,0,Pickup for heavy loads,https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=600&q=80
+VT-0002,LHR-FGH-777,Bilal Sheikh,UL-0003,Truck,Toyota,Hilux Revo,20000,Verified,1,Diesel,Automatic,4,2023,0,Reliable high power pickup,https://images.unsplash.com/photo-1519003722824-194d4455a60c?w=600&q=80

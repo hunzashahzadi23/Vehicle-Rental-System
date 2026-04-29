@@ -1,0 +1,3 @@
+user_id,name,email,password,role,cnic,phone,address,trust_score,wallet_available,wallet_locked
+UC-0001,Ali Raza,ali@example.com,ali12345,Customer,35202-1234567-1,03001234567,Lahore,3.5,150000.00,100000.00
+UL-0001,Hassan Malik,hassan@example.com,hassan12345,Lessor,35202-7654321-9,03007654321,Karachi,4.1,80000,0

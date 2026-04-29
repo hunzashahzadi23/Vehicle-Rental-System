@@ -1,0 +1,155 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+@layer base {
+  :root {
+    /* Emerald Theme - Light */
+    --background: #F0FDF4; /* bg-green-50 */
+    --card: #FFFFFF;
+    --primary: #16A34A; /* bg-green-600 */
+    --primary-foreground: #FFFFFF;
+    --secondary: #DCFCE7; /* bg-green-100 */
+    --secondary-foreground: #166534; /* text-green-800 */
+    --muted: #E2E8F0;
+    --muted-foreground: #64748B;
+    --accent: #22C55E; /* bg-green-500 */
+    --accent-foreground: #FFFFFF;
+    --border: 214.3 31.8% 91.4%; /* hsl value for E2E8F0 */
+    --input: #E2E8F0;
+    --ring: #16A34A;
+    --text: #0B0F0C;
+    --radius: 0.75rem;
+
+    --status-success: #22c55e;
+    --status-warning: #f59e0b;
+    --status-danger: #ef4444;
+    --status-info: #3b82f6;
+  }
+
+  .dark {
+    /* Emerald Theme - Dark */
+    --background: #020617; /* bg-slate-950 */
+    --card: #071A12;
+    --primary: #22C55E; /* bg-green-500 */
+    --primary-foreground: #020617;
+    --secondary: #052E16; /* bg-green-950 */
+    --secondary-foreground: #E5E7EB;
+    --muted: #1E293B;
+    --muted-foreground: #94A3B8;
+    --accent: #15803D; /* bg-green-700 */
+    --accent-foreground: #FFFFFF;
+    --border: 215.3 25% 26.7%; /* hsl value for 1E293B */
+    --input: #1E293B;
+    --ring: #22C55E;
+    --text: #E5E7EB;
+
+    --status-success: #4ade80;
+    --status-warning: #fbbf24;
+    --status-danger: #f87171;
+    --status-info: #60a5fa;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background-color: var(--background);
+    color: var(--text);
+    transition: background-color 0.3s ease, color 0.3s ease;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+}
+
+@layer utilities {
+  .glass {
+    background-color: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .dark .glass {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .glass-card {
+    background-color: var(--card);
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.75rem;
+    transition: all 0.3s ease;
+  }
+
+  .dark .glass-card {
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 15px rgba(134, 239, 172, 0.05);
+    background-color: rgba(7, 26, 18, 0.8); /* bg-card with 80% opacity */
+  }
+
+  .dark .glass-card:hover {
+    box-shadow: 0 0 20px rgba(134, 239, 172, 0.15);
+    border-color: rgba(34, 197, 94, 0.3);
+    transform: translateY(-0.25rem);
+  }
+
+  .glass-card:hover {
+    box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+    transform: translateY(-0.25rem);
+    border-color: rgba(34, 197, 94, 0.3);
+  }
+
+  /* Shimmer effect for luxury */
+  .shimmer-luxury {
+    position: relative;
+    overflow: hidden;
+  }
+  .shimmer-luxury::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgba(250, 204, 21, 0.2),
+      transparent
+    );
+    transform: skewX(-20deg);
+    animation: shimmer 3s infinite;
+  }
+
+  @keyframes shimmer {
+    100% { left: 200%; }
+  }
+
+  /* Pulse for skeletons */
+  .animate-pulse-slow {
+    animation: pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
+/* Animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fade-up { animation: fadeUp 0.5s ease forwards; }
+.fade-in { animation: fadeIn 0.4s ease forwards; }
+
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }

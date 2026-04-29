@@ -1,0 +1,14 @@
+{
+  "name": "vehicle-rental-backend-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "build:cpp": "powershell -ExecutionPolicy Bypass -File ./build-cpp.ps1",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}
