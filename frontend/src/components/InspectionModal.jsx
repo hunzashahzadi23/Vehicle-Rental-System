@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { X, Video, Shield, User, Scale } from 'lucide-react';
 import Card from './UI/Card.jsx';
 import Button from './UI/Button.jsx';
@@ -7,6 +8,8 @@ export default function InspectionModal({ booking, onClose, onApprove, isAdmin }
 
   const customerData = typeof booking.customerChecklist === 'string' ? JSON.parse(booking.customerChecklist) : booking.customerChecklist;
   const ownerData = typeof booking.ownerChecklist === 'string' ? JSON.parse(booking.ownerChecklist) : booking.ownerChecklist;
+
+  const [verdictNotes, setVerdictNotes] = useState('');
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -93,14 +96,25 @@ export default function InspectionModal({ booking, onClose, onApprove, isAdmin }
             </div>
           </div>
 
+          <div className="mt-8 p-6 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 block">Resolution Verdict Notes</label>
+            <textarea 
+              className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+              placeholder="Explain why you are favoring this party..."
+              rows={3}
+              value={verdictNotes}
+              onChange={(e) => setVerdictNotes(e.target.value)}
+            />
+          </div>
+
           <div className="mt-12 pt-6 border-t border-slate-200 dark:border-slate-800 flex flex-col items-center">
             <p className="text-sm font-bold mb-4 uppercase tracking-widest text-muted-foreground">Final Verdict</p>
             <div className="flex gap-4 w-full md:w-auto">
-              <Button variant="primary" className="flex-1 md:w-64 bg-blue-600 hover:bg-blue-700" onClick={() => onApprove('Customer')}>
-                Favor Customer
+              <Button variant="primary" className="flex-1 md:w-80 bg-blue-600 hover:bg-blue-700 h-12 text-base" onClick={() => onApprove('Customer', verdictNotes)}>
+                Resolve in Favor of Customer
               </Button>
-              <Button variant="primary" className="flex-1 md:w-64 bg-green-600 hover:bg-green-700" onClick={() => onApprove('Owner')}>
-                Favor Owner
+              <Button variant="primary" className="flex-1 md:w-80 bg-green-600 hover:bg-green-700 h-12 text-base" onClick={() => onApprove('Owner', verdictNotes)}>
+                Resolve in Favor of Owner
               </Button>
             </div>
             <p className="mt-4 text-[10px] text-muted-foreground text-center">Favoring a party will adjust trust scores and complete the financial settlement accordingly.</p>

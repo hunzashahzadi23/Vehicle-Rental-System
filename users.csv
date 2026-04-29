@@ -1,3 +1,23 @@
 user_id,name,email,password,role,cnic,phone,address,trust_score,wallet_available,wallet_locked
-UC-0001,Ali Raza,ali@example.com,ali12345,Customer,35202-1234567-1,03001234567,Lahore,3.5,145000.00,105000.00
+UC-0001,Ali Raza,ali@example.com,ali12345,Customer,35202-1234567-1,03001234567,Lahore,3.5,135000.00,115000.00
 UL-0001,Hassan Malik,hassan@example.com,hassan12345,Lessor,35202-7654321-9,03007654321,Karachi,4.1,80000,0
+UC-0010,Ahmed Fatima,ahmed10@example.com,password123,Customer,35202-1901913-9,03001840153,Islamabad,3.5,87265,0
+UC-0011,Fatima Bilal,fatima11@example.com,password123,Customer,35202-1836716-7,03004049876,Lahore,4.5,55007,0
+UL-0012,Bilal Ayesha,bilal12@example.com,password123,Lessor,35202-3316481-4,03004200591,Karachi,3.9,0,0
+UC-0013,Ayesha Usman,ayesha13@example.com,password123,Customer,35202-2874683-5,03009287882,Multan,3.4,156072,0
+UC-0014,Usman Zainab,usman14@example.com,password123,Customer,35202-2207908-2,03002835785,Rawalpindi,3.3,184611,0
+UL-0015,Zainab Omar,zainab15@example.com,password123,Lessor,35202-1592095-1,03009308640,Multan,4.3,0,0
+UC-0016,Omar Hira,omar16@example.com,password123,Customer,35202-4826223-8,03006768990,Islamabad,4.3,81095,0
+UC-0017,Hira Saad,hira17@example.com,password123,Customer,35202-4547949-1,03005739388,Multan,3.7,130295,0
+UL-0018,Saad Khadija,saad18@example.com,password123,Lessor,35202-6524557-8,03006736777,Multan,3.5,0,0
+UC-0019,Khadija Hamza,khadija19@example.com,password123,Customer,35202-1071852-9,03007847585,Rawalpindi,3.7,86149,0
+UC-0020,Hamza Maryam,hamza20@example.com,password123,Customer,35202-3377839-4,03008453614,Karachi,3.4,129280,0
+UL-0021,Maryam Tariq,maryam21@example.com,password123,Lessor,35202-9184943-3,03005961729,Rawalpindi,3.4,0,0
+UC-0022,Tariq Sara,tariq22@example.com,password123,Customer,35202-5244810-1,03004937643,Islamabad,3.7,179275,0
+UC-0023,Sara Imran,sara23@example.com,password123,Customer,35202-4715609-7,03001042638,Faisalabad,4.0,190794,0
+UL-0024,Imran Sana,imran24@example.com,password123,Lessor,35202-7878194-4,03004250168,Faisalabad,4.2,0,0
+UC-0025,Sana Fahad,sana25@example.com,password123,Customer,35202-2416885-9,03008818445,Multan,4.1,50154,0
+UC-0026,Fahad Nida,fahad26@example.com,password123,Customer,35202-8166171-9,03007864059,Karachi,4.5,163777,0
+UL-0027,Nida Kamran,nida27@example.com,password123,Lessor,35202-6936365-5,03001465543,Faisalabad,3.7,0,0
+UC-0028,Kamran Rabia,kamran28@example.com,password123,Customer,35202-1017928-4,03007112568,Multan,3.1,99261,0
+UC-0029,Rabia Ahmed,rabia29@example.com,password123,Admin,35202-7329603-4,03008723207,Multan,4.1,199223,0

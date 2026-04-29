@@ -361,7 +361,7 @@ void Admin::disputeResolutionCenter(vector<Customer*> &customers)
                 printLineWithDashes();
 
                 char decision;
-                printFormattedText("1. Release Escrow (No Damage)  2. Penalize Renter", COLOR_YELLOW, false);
+                printFormattedText("1. Resolve in Favor of Customer (Release Escrow)  2. Resolve in Favor of Owner (Penalize Renter)", COLOR_YELLOW, false);
                 printInputPrompt();
                 cin >> decision;
                 cin.ignore();
@@ -370,18 +370,18 @@ void Admin::disputeResolutionCenter(vector<Customer*> &customers)
                 {
                     double dep = bookings[j].getSecurityDeposit();
                     c->getWallet().release(dep);
-                    bookings[j].setStatus("Closed");
+                    bookings[j].setStatus("ResolvedFavorRenter");
                     // Audit log removed
-                    printFormattedText("Escrow RELEASED. Dispute closed.", COLOR_GREEN, true);
+                    printFormattedText("Resolved in Favor of CUSTOMER. Escrow released.", COLOR_GREEN, true);
                 }
                 else
                 {
                     double dep = bookings[j].getSecurityDeposit();
                     c->getWallet().deduct(dep);
                     c->penalizeTrust(1.0);
-                    bookings[j].setStatus("Closed");
+                    bookings[j].setStatus("ResolvedFavorOwner");
                     // Audit log removed
-                    printFormattedText("Renter PENALIZED. Deposit forfeited. Trust reduced.", COLOR_RED, true);
+                    printFormattedText("Resolved in Favor of OWNER. Renter penalized.", COLOR_RED, true);
                 }
                 printLineWithDashes();
                 system("pause");

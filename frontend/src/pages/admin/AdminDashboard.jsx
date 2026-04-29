@@ -7,7 +7,7 @@ import {
   getUsers, getAuditLog, auditLog, findUserById, adjustTrustScore, resolveDispute
 } from '../../services/dataService.js';
 import { useToast } from '../../store/ToastContext.jsx';
-import { ShieldCheck, Scale, Users, FileText, LayoutDashboard, CheckCircle, XCircle, Search, Video, Star, AlertTriangle, Clock } from 'lucide-react';
+import { ShieldCheck, Scale, Users, User, FileText, LayoutDashboard, CheckCircle, XCircle, Search, Video, Star, AlertTriangle, Clock } from 'lucide-react';
 import InspectionModal from '../../components/InspectionModal.jsx';
 
 export default function AdminDashboard() {
@@ -69,15 +69,15 @@ export default function AdminDashboard() {
 
   // â”€â”€ Dispute Center â”€â”€
   // FIXED: Use C++ status constants: ResolvedFavorOwner / ResolvedFavorRenter
-  const handleResolveDispute = async (bookingID, resolution) => {
+  const handleResolveDispute = async (bookingID, resolution, notes = '') => {
     const bookings = await getBookings();
     const booking = bookings.find(b => b.bookingID === bookingID);
     const verdict = resolution === 'customer' ? 'ResolvedFavorRenter' : 'ResolvedFavorOwner';
     // penalize the losing party
     const penalizeUserId = resolution !== 'customer' ? booking?.customerID : null;
-    await resolveDispute(bookingID, verdict, '', penalizeUserId);
+    await resolveDispute(bookingID, verdict, notes, penalizeUserId);
     await updateVehicle(booking?.vehicleID, { available: true });
-    await auditLog(currentUser.id, 'DISPUTE_RESOLVED', `${bookingID} resolved: ${verdict}`);
+    await auditLog(currentUser.id, 'DISPUTE_RESOLVED', `${bookingID} resolved: ${verdict}. Notes: ${notes}`);
     showToast(`Dispute resolved in favour of ${resolution === 'customer' ? 'Renter' : 'Owner'}.`, 'success');
     await reload();
   };
@@ -411,10 +411,22 @@ export default function AdminDashboard() {
                       {/* Resolution buttons */}
                       <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-slate-800 flex-wrap">
                         <button 
-                          className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg transition-colors shadow-sm text-sm flex items-center gap-2 w-full justify-center" 
+                          className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg transition-colors shadow-sm text-sm flex items-center gap-2 flex-1 justify-center" 
                           onClick={() => setDisputeBooking(b)}
                         >
-                          <Search className="w-4 h-4" /> Review Case & Checklists
+                          <Search className="w-4 h-4" /> Review Details
+                        </button>
+                        <button 
+                          className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors shadow-sm text-sm flex items-center gap-2 flex-1 justify-center" 
+                          onClick={() => handleResolveDispute(b.bookingID, 'owner')}
+                        >
+                          <ShieldCheck className="w-4 h-4" /> Favor Owner
+                        </button>
+                        <button 
+                          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors shadow-sm text-sm flex items-center gap-2 flex-1 justify-center" 
+                          onClick={() => handleResolveDispute(b.bookingID, 'customer')}
+                        >
+                          <User className="w-4 h-4" /> Favor Customer
                         </button>
                       </div>
                     </div>
@@ -518,8 +530,8 @@ export default function AdminDashboard() {
           booking={disputeBooking}
           isAdmin={true}
           onClose={() => setDisputeBooking(null)}
-          onApprove={(party) => {
-            handleResolveDispute(disputeBooking.bookingID, party.toLowerCase());
+          onApprove={(party, notes) => {
+            handleResolveDispute(disputeBooking.bookingID, party.toLowerCase(), notes);
             setDisputeBooking(null);
           }}
         />

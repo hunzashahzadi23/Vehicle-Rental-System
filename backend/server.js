@@ -31,23 +31,126 @@ function ensureCsv(name) {
 
 Object.keys(CSV_SCHEMAS).forEach(ensureCsv);
 
+function normalizeCppOut(out, fields) {
+  if (!out) return {};
+  if (Array.isArray(out)) {
+    const obj = {};
+    fields.forEach((f, i) => { obj[f] = out[i]; });
+    return obj;
+  }
+  if (typeof out === 'object') return out;
+  return {};
+}
+
+function parseCsvLine(line) {
+  const values = [];
+  let cur = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
+        cur += '"';
+        i++; // skip escaped quote
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+    if (ch === ',' && !inQuotes) {
+      values.push(cur);
+      cur = '';
+      continue;
+    }
+    cur += ch;
+  }
+  values.push(cur);
+  return values.map(v => v.trim());
+}
+
+function quoteCsv(val) {
+  if (val === undefined || val === null) return '';
+  const s = String(val);
+  if (/[",\r\n]/.test(s)) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
 function readCsv(file) {
   if (!fs.existsSync(file)) return [];
-  const raw = fs.readFileSync(file, 'utf8').trim();
+  const raw = fs.readFileSync(file, 'utf8');
   if (!raw) return [];
-  const lines = raw.split(/\r?\n/);
-  const headers = lines[0].split(',').map((h) => h.trim());
-  return lines.slice(1).filter(Boolean).map((line) => {
-    const values = line.split(',').map((v) => v.trim());
+  const lines = raw.split(/\r?\n/).filter(Boolean);
+  if (lines.length === 0) return [];
+  const headers = parseCsvLine(lines[0]).map(h => h.trim());
+  return lines.slice(1).map((line) => {
+    const values = parseCsvLine(line);
     const obj = {};
     headers.forEach((h, i) => { obj[h] = values[i] ?? ''; });
     return obj;
   });
 }
 
+function tryParseJsonField(s) {
+  if (s === undefined || s === null) return s;
+  if (typeof s !== 'string') return s;
+  const trimmed = s.trim();
+  if (!trimmed) return '';
+  // attempt to extract a JSON object substring (handle broken quoting)
+  function extractJsonSubstring(str) {
+    const start = str.indexOf('{');
+    if (start === -1) return null;
+    let depth = 0;
+    for (let i = start; i < str.length; i++) {
+      if (str[i] === '{') depth++;
+      else if (str[i] === '}') depth--;
+      if (depth === 0) return str.slice(start, i + 1);
+    }
+    return null;
+  }
+
+  let candidate = extractJsonSubstring(trimmed);
+  if (!candidate) {
+    // fall back to removing wrapping quotes and unescaping doubled quotes
+    candidate = trimmed.replace(/^\s*"|"\s*$/g, '').replace(/""/g, '"').trim();
+  } else {
+    candidate = candidate.replace(/""/g, '"').replace(/\\"/g, '"').trim();
+  }
+
+  if (!candidate) return s;
+  const first = candidate[0];
+  if (first === '{' || first === '[') {
+    try {
+      return JSON.parse(candidate);
+    } catch (e) {
+      return candidate;
+    }
+  }
+  return s;
+}
+
+function normalizeBookingRow(row) {
+  const r = { ...row };
+  // Try to recover JSON that may have been split across multiple CSV columns
+  const combined = [r.customerChecklist || '', r.ownerChecklist || '', r.dentDescription || ''].filter(Boolean).join(',');
+  const parsed = tryParseJsonField(combined);
+  if (parsed && typeof parsed === 'object') {
+    r.customerChecklist = parsed;
+    r.ownerChecklist = '';
+    r.dentDescription = '';
+  } else {
+    ['customerChecklist', 'ownerChecklist', 'dentDescription'].forEach((f) => {
+      if (r[f]) r[f] = tryParseJsonField(r[f]);
+    });
+  }
+  return r;
+}
+
 function writeCsv(file, rows, headers) {
-  const body = rows.map((row) => headers.map((h) => row[h] ?? '').join(',')).join('\n');
-  fs.writeFileSync(file, `${headers.join(',')}\n${body}`.trimEnd(), 'utf8');
+  const headerLine = headers.map(h => quoteCsv(h)).join(',');
+  const body = rows.map((row) => headers.map((h) => quoteCsv(row[h] ?? '')).join(',')).join('\n');
+  fs.writeFileSync(file, `${headerLine}\n${body}`.trimEnd(), 'utf8');
 }
 
 function updateById(name, idField, idValue, patch) {
@@ -69,11 +172,24 @@ function runCpp(args) {
     proc.stderr.on('data', (d) => { stderr += d.toString(); });
     proc.on('close', (code) => {
       const out = stdout.trim();
-      if (code === 0 && out.startsWith('OK|')) {
-        resolve(out.substring(3).split('|').filter(x => x.length > 0));
-        return;
+      // If C++ returns JSON directly (or JSON after OK|), parse it and return the object
+      try {
+        let payload = out;
+        if (out.startsWith('OK|')) payload = out.substring(3);
+        // raw JSON response
+        if (payload.startsWith('{') || payload.startsWith('[')) {
+          const parsed = JSON.parse(payload);
+          if (code === 0) { resolve(parsed); return; }
+        }
+        // legacy pipe-delimited OK|a|b|c format
+        if (code === 0 && out.startsWith('OK|')) {
+          resolve(out.substring(3).split('|'));
+          return;
+        }
+      } catch (e) {
+        // fallthrough to error handling below
       }
-      const errMessage = out.startsWith('ERR|') ? out.substring(4) : (stderr.trim() || 'C++ command failed');
+      const errMessage = out.startsWith('ERR|') ? out.substring(4) : (stderr.trim() || `C++ command failed (code ${code})`);
       reject(new Error(errMessage));
     });
   });
@@ -116,8 +232,9 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const [id, name, userEmail, role, cnic, trustScore, walletAvailable, walletLocked] = await runCpp(['login', email, password]);
-    res.json({ id, name, email: userEmail, role, cnic, trustScore: Number(trustScore), walletAvailable: Number(walletAvailable), walletLocked: Number(walletLocked) });
+    const out = await runCpp(['login', email, password]);
+    const obj = normalizeCppOut(out, ['id','name','email','role','cnic','trustScore','walletAvailable','walletLocked']);
+    res.json({ id: obj.id, name: obj.name, email: obj.email, role: obj.role, cnic: obj.cnic, trustScore: Number(obj.trustScore) || 0, walletAvailable: Number(obj.walletAvailable) || 0, walletLocked: Number(obj.walletLocked) || 0 });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -126,9 +243,9 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { role, name, email, password, phone, address, cnic } = req.body;
-    const [id, outName, outEmail, outRole, outCnic, trustScore, walletAvailable, walletLocked] =
-      await runCpp(['register', role, name, email, password, phone, address, cnic, '100000']);
-    res.json({ id, name: outName, email: outEmail, role: outRole, cnic: outCnic, trustScore: Number(trustScore), walletAvailable: Number(walletAvailable), walletLocked: Number(walletLocked) });
+    const out = await runCpp(['register', role, name, email, password, phone, address, cnic, '100000']);
+    const obj = normalizeCppOut(out, ['id','name','email','role','cnic','trustScore','walletAvailable','walletLocked']);
+    res.json({ id: obj.id, name: obj.name, email: obj.email, role: obj.role, cnic: obj.cnic, trustScore: Number(obj.trustScore) || 0, walletAvailable: Number(obj.walletAvailable) || 0, walletLocked: Number(obj.walletLocked) || 0 });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -147,7 +264,10 @@ app.post('/api/vehicles/verify', async (req, res) => {
 app.get('/api/users', (_req, res) => res.json(readCsv(csvPath('users'))));
 app.get('/api/vehicles', (_req, res) => res.json(readCsv(csvPath('vehicles'))));
 app.get('/api/marketplace', (_req, res) => res.json(readCsv(csvPath('marketplace_vehicles'))));
-app.get('/api/bookings', (_req, res) => res.json(readCsv(csvPath('bookings'))));
+app.get('/api/bookings', (_req, res) => {
+  const rows = readCsv(csvPath('bookings'));
+  res.json(rows.map(normalizeBookingRow));
+});
 app.get('/api/audit', (_req, res) => res.json(readCsv(csvPath('audit_logs'))));
 app.get('/api/transactions', (_req, res) => res.json(readCsv(csvPath('transactions'))));
 app.get('/api/reviews', (_req, res) => res.json(readCsv(csvPath('reviews'))));
@@ -174,12 +294,13 @@ app.put('/api/vehicles', (req, res) => {
 app.post('/api/bookings', async (req, res) => {
   try {
     const { customerID, vehicleID, ownerID, duration, cost, insurance, deposit, rentDate } = req.body || {};
-    const [id, status] = await runCpp([
+    const out = await runCpp([
       'create_booking', customerID, vehicleID, ownerID, String(duration), String(cost), insurance, String(deposit), rentDate || ''
     ]);
+    const obj = normalizeCppOut(out, ['bookingID','status']);
     // Audit
-    appendAudit(customerID || 'SYSTEM', 'BOOKING_CREATED', `Booking ${id} created for vehicle ${vehicleID}`);
-    res.json({ bookingID: id, status, ...req.body });
+    appendAudit(customerID || 'SYSTEM', 'BOOKING_CREATED', `Booking ${obj.bookingID || 'UNKNOWN'} created for vehicle ${vehicleID}`);
+    res.json({ bookingID: obj.bookingID, status: obj.status, ...req.body });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -238,8 +359,8 @@ app.get('/api/favorites/:userId', async (req, res) => {
 app.get('/api/bookings/user/:userId', (req, res) => {
   const { userId } = req.params;
   const rows = readCsv(csvPath('bookings'));
-  const userBookings = rows.filter((r) => r.bookedCustomerID === userId || r.customerID === userId || r.ownerID === userId);
-  res.json(userBookings);
+  const userBookings = rows.filter((r) => String(r.bookedCustomerID) === String(userId) || String(r.ownerID) === String(userId));
+  res.json(userBookings.map(normalizeBookingRow));
 });
 
 // NEW: Get bookings by status
@@ -247,7 +368,7 @@ app.get('/api/bookings/status/:status', (req, res) => {
   const { status } = req.params;
   const rows = readCsv(csvPath('bookings'));
   const statusBookings = rows.filter((r) => r.status === status);
-  res.json(statusBookings);
+  res.json(statusBookings.map(normalizeBookingRow));
 });
 
 // NEW: Upload video (store path reference)
@@ -274,31 +395,33 @@ app.post('/api/videos/upload', (req, res) => {
   res.json({ ok: true, videoPath });
 });
 
-// Admin dispute resolution with trust penalty
+// Admin dispute resolution with financial settlement
 app.post('/api/disputes/resolve', async (req, res) => {
-  const { bookingId, verdict, notes, penalizeUserId } = req.body || {};
-  if (!bookingId || !verdict) return res.status(400).json({ error: 'Missing required fields' });
-  const validVerdicts = ['ResolvedFavorOwner', 'ResolvedFavorRenter'];
-  if (!validVerdicts.includes(verdict)) return res.status(400).json({ error: 'Invalid verdict' });
+  try {
+    const { bookingId, verdict, notes, penalizeUserId } = req.body || {};
+    if (!bookingId || !verdict) return res.status(400).json({ error: 'Missing required fields' });
+    
+    // Call C++ engine to handle wallet settlement
+    const out = await runCpp(['resolve_dispute', bookingId, verdict, notes || '']);
+    
+    // Apply trust penalty if verdict favors owner (customer lied)
+    if (verdict === 'ResolvedFavorOwner' && penalizeUserId) {
+      await adjustUserTrust(penalizeUserId, -1.0);
+      appendAudit('ADMIN', 'PENALTY_APPLIED', `Trust -1 for ${penalizeUserId} (dispute lost)`);
+    }
 
-  const updated = updateById('bookings', 'bookingID', bookingId, {
-    status: verdict,
-    adminVerdictNotes: notes || '',
-    completedAt: new Date().toISOString()
-  });
-  if (!updated) return res.status(404).json({ error: 'Booking not found' });
+    // Also restore vehicle availability
+    const bookings = readCsv(csvPath('bookings'));
+    const booking = bookings.find(b => b.bookingID === bookingId);
+    if (booking && booking.bookedVehicleID) {
+      updateById('vehicles', 'vehicle_id', booking.bookedVehicleID, { available: '1' });
+    }
 
-  // Apply trust penalty if verdict favors owner (customer lied)
-  if (verdict === 'ResolvedFavorOwner' && penalizeUserId) {
-    await adjustUserTrust(penalizeUserId, -1.0);
-    appendAudit('ADMIN', 'PENALTY_APPLIED', `Trust -1 for ${penalizeUserId} (dispute lost)`);
+    appendAudit('ADMIN', 'DISPUTE_RESOLVED', `Booking ${bookingId} resolved as ${verdict}`);
+    res.json({ ok: true, booking: out });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
-  // Also restore vehicle availability
-  if (updated.bookedVehicleID) {
-    updateById('vehicles', 'vehicle_id', updated.bookedVehicleID, { available: '1' });
-  }
-  appendAudit('ADMIN', 'DISPUTE_RESOLVED', `Booking ${bookingId} resolved as ${verdict}`);
-  res.json({ ok: true, booking: updated });
 });
 
 // NEW: Initiate dispute
@@ -324,8 +447,9 @@ app.post('/api/disputes/create', (req, res) => {
 app.post('/api/bookings/:id/approve', (req, res) => {
   const { ownerChecklist, actorID } = req.body || {};
   runCpp(['approve_booking', req.params.id, ownerChecklist || '', actorID || '']).then((out) => {
-    appendAudit(actorID || 'SYSTEM', 'BOOKING_APPROVED', `Booking ${req.params.id} approved`);
-    res.json({ bookingID: out[0], status: out[1] });
+    const obj = normalizeCppOut(out, ['bookingID','status']);
+    appendAudit(actorID || 'SYSTEM', 'BOOKING_APPROVED', `Booking ${obj.bookingID || req.params.id} approved`);
+    res.json({ bookingID: obj.bookingID, status: obj.status });
   }).catch(err => res.status(400).json({ error: err.message }));
 });
 
@@ -342,8 +466,9 @@ app.post('/api/bookings/:id/activate', (req, res) => {
 app.post('/api/bookings/:id/complete-pickup', (req, res) => {
   const { pickupVideoPath, actorID } = req.body || {};
   runCpp(['complete_pickup', req.params.id, pickupVideoPath || '', actorID || '']).then((out) => {
-    appendAudit(actorID || 'SYSTEM', 'PICKUP_COMPLETED', `Pickup for ${req.params.id}`);
-    res.json({ bookingID: out[0], status: out[1] });
+    const obj = normalizeCppOut(out, ['bookingID','status']);
+    appendAudit(actorID || 'SYSTEM', 'PICKUP_COMPLETED', `Pickup for ${obj.bookingID || req.params.id}`);
+    res.json({ bookingID: obj.bookingID, status: obj.status });
   }).catch(err => res.status(400).json({ error: err.message }));
 });
 
@@ -351,8 +476,9 @@ app.post('/api/bookings/:id/complete-pickup', (req, res) => {
 app.post('/api/bookings/:id/complete-return', (req, res) => {
   const { returnVideoPath, customerChecklist, actorID } = req.body || {};
   runCpp(['complete_return', req.params.id, returnVideoPath || '', customerChecklist || '', actorID || '']).then((out) => {
-    appendAudit(actorID || 'SYSTEM', 'RETURN_COMPLETED', `Return for ${req.params.id}`);
-    res.json({ raw: out });
+    const obj = normalizeCppOut(out, ['bookingID','status','reason']);
+    appendAudit(actorID || 'SYSTEM', 'RETURN_COMPLETED', `Return for ${obj.bookingID || req.params.id}`);
+    res.json({ bookingID: obj.bookingID, status: obj.status, reason: obj.reason });
   }).catch(err => res.status(400).json({ error: err.message }));
 });
 
@@ -384,8 +510,9 @@ app.post('/api/bookings/:id/rate', (req, res) => {
 app.post('/api/bookings/:id/inspect', (req, res) => {
   const { inspectionNotes, approved, adminID } = req.body || {};
   runCpp(['inspect_booking', req.params.id, String(approved === true || approved === 'true'), inspectionNotes || '', adminID || '']).then((out) => {
-    appendAudit(adminID || 'ADMIN', approved === true || approved === 'true' ? 'INSPECTION_APPROVED' : 'INSPECTION_FAILED', `Inspection for ${req.params.id}: ${approved}`);
-    res.json({ bookingID: out[0], status: out[1] });
+    const obj = normalizeCppOut(out, ['bookingID','status']);
+    appendAudit(adminID || 'ADMIN', approved === true || approved === 'true' ? 'INSPECTION_APPROVED' : 'INSPECTION_FAILED', `Inspection for ${obj.bookingID || req.params.id}: ${approved}`);
+    res.json({ bookingID: obj.bookingID, status: obj.status });
   }).catch(err => res.status(400).json({ error: err.message }));
 });
 

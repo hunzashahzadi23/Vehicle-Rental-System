@@ -108,6 +108,17 @@ string getTodayDate() {
     return string(buf);
 }
 
+string escapeJson(const string& s) {
+    string out;
+    for (char c : s) {
+        if (c == '"') out += '\\"';
+        else if (c == '\\') out += '\\\\';
+        else if (c == '\n') out += "\\n";
+        else out.push_back(c);
+    }
+    return out;
+}
+
 // Build a row of exactly 33 blank fields
 vector<string> blankBookingRow(size_t n = 33) {
     return vector<string>(n, "");
@@ -131,9 +142,18 @@ int main(int argc, char* argv[]) {
         for (size_t i = 1; i < rows.size(); ++i) {
             if (rows[i].size() < 11) continue;
             if (rows[i][2] == email && rows[i][3] == password) {
-                cout << "OK|" << rows[i][0] << "|" << rows[i][1] << "|" << rows[i][2]
-                     << "|" << rows[i][4] << "|" << rows[i][5]
-                     << "|" << rows[i][8] << "|" << rows[i][9] << "|" << rows[i][10];
+                {
+                    stringstream js;
+                    js << "{\"id\":\"" << escapeJson(rows[i][0]) << "\",";
+                    js << "\"name\":\"" << escapeJson(rows[i][1]) << "\",";
+                    js << "\"email\":\"" << escapeJson(rows[i][2]) << "\",";
+                    js << "\"role\":\"" << escapeJson(rows[i][4]) << "\",";
+                    js << "\"cnic\":\"" << escapeJson(rows[i][5]) << "\",";
+                    js << "\"trustScore\":\"" << escapeJson(rows[i][8]) << "\",";
+                    js << "\"walletAvailable\":\"" << escapeJson(rows[i][9]) << "\",";
+                    js << "\"walletLocked\":\"" << escapeJson(rows[i][10]) << "\"}";
+                    cout << "OK|" << js.str();
+                }
                 return 0;
             }
         }
@@ -167,7 +187,18 @@ int main(int argc, char* argv[]) {
         out << "\n" << userId << "," << name << "," << email << "," << argv[5] << ","
             << role << "," << cnic << "," << phone << "," << address << ",3.0," << initialWallet << ",0";
         out.close();
-        cout << "OK|" << userId << "|" << name << "|" << email << "|" << role << "|" << cnic << "|3.0|" << initialWallet << "|0";
+        {
+            stringstream js;
+            js << "{\"id\":\"" << escapeJson(userId) << "\",";
+            js << "\"name\":\"" << escapeJson(name) << "\",";
+            js << "\"email\":\"" << escapeJson(email) << "\",";
+            js << "\"role\":\"" << escapeJson(role) << "\",";
+            js << "\"cnic\":\"" << escapeJson(cnic) << "\",";
+            js << "\"trustScore\":\"3.0\",";
+            js << "\"walletAvailable\":\"" << escapeJson(initialWallet) << "\",";
+            js << "\"walletLocked\":\"0\"}";
+            cout << "OK|" << js.str();
+        }
         return 0;
     }
 
@@ -247,7 +278,12 @@ int main(int argc, char* argv[]) {
         bOut << "\n";
         bOut.close();
 
-        cout << "OK|" << bookingID << "|PendingApproval";
+        {
+            stringstream js;
+            js << "{\"bookingID\":\"" << escapeJson(bookingID) << "\",";
+            js << "\"status\":\"PendingApproval\"}";
+            cout << "OK|" << js.str();
+        }
         return 0;
     }
 
@@ -264,13 +300,20 @@ int main(int argc, char* argv[]) {
         }
         if (!found) favs.push_back({userID, vehicleID, getISOTimestamp()});
         writeCsvRows(favoritesFile, favs);
-        cout << "OK|";
-        bool first = true;
-        for (const auto& row : favs) {
-            if (row.size() >= 2 && row[0] == userID) {
-                if (!first) cout << "|";
-                cout << row[1]; first = false;
+        {
+            // build JSON array of favorites for the user
+            stringstream js;
+            js << "[";
+            bool first = true;
+            for (const auto& row : favs) {
+                if (row.size() >= 2 && row[0] == userID) {
+                    if (!first) js << ",";
+                    js << "\"" << escapeJson(row[1]) << "\"";
+                    first = false;
+                }
             }
+            js << "]";
+            cout << "OK|" << js.str();
         }
         return 0;
     }
@@ -280,13 +323,19 @@ int main(int argc, char* argv[]) {
         if (argc < 3) { cout << "ERR|Usage: get_favorites <userID>"; return 1; }
         const string userID = argv[2];
         auto favs = readCsvRows(favoritesFile);
-        cout << "OK|";
-        bool first = true;
-        for (const auto& row : favs) {
-            if (row.size() >= 2 && row[0] == userID) {
-                if (!first) cout << "|";
-                cout << row[1]; first = false;
+        {
+            stringstream js;
+            js << "[";
+            bool first = true;
+            for (const auto& row : favs) {
+                if (row.size() >= 2 && row[0] == userID) {
+                    if (!first) js << ",";
+                    js << "\"" << escapeJson(row[1]) << "\"";
+                    first = false;
+                }
             }
+            js << "]";
+            cout << "OK|" << js.str();
         }
         return 0;
     }
@@ -311,7 +360,12 @@ int main(int argc, char* argv[]) {
             bookings[i][29] = getISOTimestamp(); // approvedAt col
             if (!ownerID.empty()) bookings[i][3] = ownerID;
             writeCsvRows(bookingsFile, bookings);
-            cout << "OK|" << bookingID << "|Approved";
+            {
+                stringstream js;
+                js << "{\"bookingID\":\"" << escapeJson(bookingID) << "\",";
+                js << "\"status\":\"Approved\"}";
+                cout << "OK|" << js.str();
+            }
             return 0;
         }
         cout << "ERR|Booking not found"; return 1;
@@ -335,7 +389,12 @@ int main(int argc, char* argv[]) {
             bookings[i][10] = pickupVideo;
             bookings[i][30] = getISOTimestamp(); // pickupAt
             writeCsvRows(bookingsFile, bookings);
-            cout << "OK|" << bookingID << "|PickupCompleted";
+            {
+                stringstream js;
+                js << "{\"bookingID\":\"" << escapeJson(bookingID) << "\",";
+                js << "\"status\":\"PickupCompleted\"}";
+                cout << "OK|" << js.str();
+            }
             return 0;
         }
         cout << "ERR|Booking not found"; return 1;
@@ -355,7 +414,12 @@ int main(int argc, char* argv[]) {
             }
             bookings[i][9] = "Active";
             writeCsvRows(bookingsFile, bookings);
-            cout << "OK|" << bookingID << "|Active";
+            {
+                stringstream js;
+                js << "{\"bookingID\":\"" << escapeJson(bookingID) << "\",";
+                js << "\"status\":\"Active\"}";
+                cout << "OK|" << js.str();
+            }
             return 0;
         }
         cout << "ERR|Booking not found"; return 1;
@@ -401,16 +465,27 @@ int main(int argc, char* argv[]) {
                 normCustomer.erase(remove(normCustomer.begin(), normCustomer.end(), ' '), normCustomer.end());
                 if (normOwner != normCustomer) mismatch = true;
             }
-            if (mismatch) {
+                if (mismatch) {
                 bookings[i][9]  = "Disputed";
                 bookings[i][22] = "YELLOW_FLAG:CHECKLIST_MISMATCH";
                 writeCsvRows(bookingsFile, bookings);
-                cout << "OK|" << bookingID << "|Disputed|CHECKLIST_MISMATCH";
+                {
+                    stringstream js;
+                    js << "{\"bookingID\":\"" << escapeJson(bookingID) << "\",";
+                    js << "\"status\":\"Disputed\",";
+                    js << "\"reason\":\"CHECKLIST_MISMATCH\"}";
+                    cout << "OK|" << js.str();
+                }
                 return 0;
             }
 
             writeCsvRows(bookingsFile, bookings);
-            cout << "OK|" << bookingID << "|ReturnCompleted";
+            {
+                stringstream js;
+                js << "{\"bookingID\":\"" << escapeJson(bookingID) << "\",";
+                js << "\"status\":\"ReturnCompleted\"}";
+                cout << "OK|" << js.str();
+            }
             return 0;
         }
         cout << "ERR|Booking not found"; return 1;
@@ -470,16 +545,96 @@ int main(int argc, char* argv[]) {
                 }
                 writeCsvRows(usersFile, users);
                 writeCsvRows(bookingsFile, bookings);
-                cout << "OK|" << bookingID << "|Completed";
+                {
+                    stringstream js;
+                    js << "{\"bookingID\":\"" << escapeJson(bookingID) << "\",";
+                    js << "\"status\":\"Completed\"}";
+                    cout << "OK|" << js.str();
+                }
                 return 0;
             } else {
                 // Flag as Disputed for admin resolution
                 bookings[i][9]  = "Disputed";
                 bookings[i][21] = notes;
                 writeCsvRows(bookingsFile, bookings);
-                cout << "OK|" << bookingID << "|Disputed";
+                {
+                    stringstream js;
+                    js << "{\"bookingID\":\"" << escapeJson(bookingID) << "\",";
+                    js << "\"status\":\"Disputed\"}";
+                    cout << "OK|" << js.str();
+                }
                 return 0;
             }
+        }
+        cout << "ERR|Booking not found"; return 1;
+    }
+
+    // ── RESOLVE_DISPUTE ───────────────────────────────────────────────────
+    if (command == "resolve_dispute") {
+        if (argc < 4) { cout << "ERR|Usage: resolve_dispute <bookingID> <verdict:ResolvedFavorOwner|ResolvedFavorRenter> [notes]"; return 1; }
+        const string bookingID = argv[2];
+        const string verdict   = argv[3];
+        const string notes     = (argc > 4) ? argv[4] : "";
+
+        auto bookings = readCsvRows(bookingsFile);
+        auto users    = readCsvRows(usersFile);
+        for (size_t i = 1; i < bookings.size(); ++i) {
+            if (bookings[i].empty() || bookings[i][0] != bookingID) continue;
+            if (bookings[i].size() < 33) bookings[i].resize(33);
+            
+            const string customerID = bookings[i][2];
+            const string ownerID    = bookings[i][3];
+            double deposit = 0.0;
+            try { deposit = stod(bookings[i][8]); } catch(...) {}
+
+            bookings[i][9]  = verdict;
+            bookings[i][23] = notes;             // adminVerdictNotes
+            bookings[i][32] = getISOTimestamp(); // completedAt
+            bookings[i][17] = "0";               // amountLocked cleared
+
+            if (verdict == "ResolvedFavorRenter") {
+                // Return deposit to customer
+                for (size_t u = 1; u < users.size(); ++u) {
+                    if (users[u].empty() || users[u][0] != customerID) continue;
+                    if (users[u].size() < 11) users[u].resize(11);
+                    double avail = 0, locked = 0;
+                    try { avail = stod(users[u][9]); } catch(...) {}
+                    try { locked = stod(users[u][10]); } catch(...) {}
+                    locked = max(0.0, locked - deposit);
+                    avail += deposit;
+                    users[u][9] = to_string(avail);
+                    users[u][10] = to_string(locked);
+                    break;
+                }
+            } else if (verdict == "ResolvedFavorOwner") {
+                // Deduct deposit from customer (it stays "cut") and optionally give to owner
+                for (size_t u = 1; u < users.size(); ++u) {
+                    if (users[u].empty()) continue;
+                    if (users[u].size() < 11) users[u].resize(11);
+                    if (users[u][0] == customerID) {
+                        double locked = 0;
+                        try { locked = stod(users[u][10]); } catch(...) {}
+                        locked = max(0.0, locked - deposit);
+                        users[u][10] = to_string(locked);
+                    }
+                    if (users[u][0] == ownerID) {
+                        double avail = 0;
+                        try { avail = stod(users[u][9]); } catch(...) {}
+                        avail += deposit; // Transfer deposit to owner as compensation
+                        users[u][9] = to_string(avail);
+                    }
+                }
+            }
+
+            writeCsvRows(usersFile, users);
+            writeCsvRows(bookingsFile, bookings);
+            {
+                stringstream js;
+                js << "{\"bookingID\":\"" << escapeJson(bookingID) << "\",";
+                js << "\"status\":\"" << escapeJson(verdict) << "\"}";
+                cout << "OK|" << js.str();
+            }
+            return 0;
         }
         cout << "ERR|Booking not found"; return 1;
     }
