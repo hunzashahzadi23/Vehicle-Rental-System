@@ -21,7 +21,6 @@ export default function ChecklistModal({ title, subtitle, requireVideo, onClose,
   const [videoUrl, setVideoUrl] = useState('');
 
   const handleSelect = (id, val) => {
-    if (readOnly) return;
     setChecklist(prev => ({ ...prev, [id]: val }));
   };
 
@@ -48,7 +47,7 @@ export default function ChecklistModal({ title, subtitle, requireVideo, onClose,
 
           <div className="space-y-4 mb-6">
             <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-3">
-              {readOnly ? "Inspection Summary" : "8-Point Verification"}
+              8-Point Verification
             </h3>
             {CHECKLIST_ITEMS.map(item => (
               <div key={item.id} className="flex items-center justify-between p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
@@ -56,7 +55,6 @@ export default function ChecklistModal({ title, subtitle, requireVideo, onClose,
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleSelect(item.id, true)}
-                    disabled={readOnly}
                     className={`px-3 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-1 ${
                       checklist[item.id] === true 
                         ? 'bg-green-500 text-white shadow-sm' 
@@ -67,7 +65,6 @@ export default function ChecklistModal({ title, subtitle, requireVideo, onClose,
                   </button>
                   <button
                     onClick={() => handleSelect(item.id, false)}
-                    disabled={readOnly}
                     className={`px-3 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-1 ${
                       checklist[item.id] === false 
                         ? 'bg-red-500 text-white shadow-sm' 
@@ -82,18 +79,17 @@ export default function ChecklistModal({ title, subtitle, requireVideo, onClose,
           </div>
 
           <div className="space-y-2 mb-6">
-            <label className="text-sm font-bold text-text">{readOnly ? "Verification Notes" : "Additional Notes / Damage Description"}</label>
+            <label className="text-sm font-bold text-text">Additional Notes / Damage Description</label>
             <textarea 
               className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all text-sm" 
               rows="3" 
               placeholder="Explain any 'No' answers or describe scratches..."
               value={dentDescription}
-              onChange={e => !readOnly && setDentDescription(e.target.value)}
-              readOnly={readOnly}
+              onChange={e => setDentDescription(e.target.value)}
             />
           </div>
 
-          {requireVideo && !readOnly && (
+          {requireVideo && (
             <div className="space-y-2 mb-6">
               <label className="text-sm font-bold text-text flex items-center gap-2">Video Evidence URL <span className="text-red-500">*</span></label>
               <input 
@@ -107,17 +103,15 @@ export default function ChecklistModal({ title, subtitle, requireVideo, onClose,
             </div>
           )}
 
-          {!readOnly && (
-            <button 
-              onClick={handleSubmit}
-              disabled={!allAnswered || (requireVideo && !videoUrl)}
-              className={`w-full py-3.5 rounded-xl font-bold text-white shadow-sm transition-all flex justify-center items-center gap-2 ${
-                (!allAnswered || (requireVideo && !videoUrl)) ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98]'
-              }`}
-            >
-              <CheckCircle className="w-4 h-4" /> Submit Verification
-            </button>
-          )}
+          <button 
+            onClick={handleSubmit}
+            disabled={!allAnswered || (requireVideo && !videoUrl)}
+            className={`w-full py-3.5 rounded-xl font-bold text-white shadow-sm transition-all flex justify-center items-center gap-2 ${
+              (!allAnswered || (requireVideo && !videoUrl)) ? 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98]'
+            }`}
+          >
+            <CheckCircle className="w-4 h-4" /> Submit Verification
+          </button>
         </div>
       </div>
     </div>
