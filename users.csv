@@ -1,6 +1,6 @@
 user_id,name,email,password,role,cnic,phone,address,trust_score,wallet_available,wallet_locked
-UC-0001,Ali Raza,ali@example.com,ali12345,Customer,35202-1234567-1,03001234567,Lahore,3.5,135000.00,115000.00
-UL-0001,Hassan Malik,hassan@example.com,hassan12345,Lessor,35202-7654321-9,03007654321,Karachi,4.1,80000,0
+UC-0001,Ali Raza,ali@example.com,ali12345,Customer,35202-1234567-1,03001234567,Lahore,3.6,140000.000000,110000.000000
+UL-0001,Hassan Malik,hassan@example.com,hassan12345,Lessor,35202-7654321-9,03007654321,Karachi,4.1,131750.000000,0
 UC-0010,Ahmed Fatima,ahmed10@example.com,password123,Customer,35202-1901913-9,03001840153,Islamabad,3.5,87265,0
 UC-0011,Fatima Bilal,fatima11@example.com,password123,Customer,35202-1836716-7,03004049876,Lahore,4.5,55007,0
 UL-0012,Bilal Ayesha,bilal12@example.com,password123,Lessor,35202-3316481-4,03004200591,Karachi,3.9,0,0
@@ -14,7 +14,7 @@ UC-0019,Khadija Hamza,khadija19@example.com,password123,Customer,35202-1071852-9
 UC-0020,Hamza Maryam,hamza20@example.com,password123,Customer,35202-3377839-4,03008453614,Karachi,3.4,129280,0
 UL-0021,Maryam Tariq,maryam21@example.com,password123,Lessor,35202-9184943-3,03005961729,Rawalpindi,3.4,0,0
 UC-0022,Tariq Sara,tariq22@example.com,password123,Customer,35202-5244810-1,03004937643,Islamabad,3.7,179275,0
-UC-0023,Sara Imran,sara23@example.com,password123,Customer,35202-4715609-7,03001042638,Faisalabad,4.0,190794,0
+UC-0023,Sara Imran,sara23@example.com,password123,Customer,35202-4715609-7,03001042638,Faisalabad,4.0,185794.00,5000.00
 UL-0024,Imran Sana,imran24@example.com,password123,Lessor,35202-7878194-4,03004250168,Faisalabad,4.2,0,0
 UC-0025,Sana Fahad,sana25@example.com,password123,Customer,35202-2416885-9,03008818445,Multan,4.1,50154,0
 UC-0026,Fahad Nida,fahad26@example.com,password123,Customer,35202-8166171-9,03007864059,Karachi,4.5,163777,0
